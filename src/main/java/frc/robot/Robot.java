@@ -67,6 +67,7 @@ public class Robot extends TimedRobot {
   private final PWMSparkMax m_bottomMotor = new PWMSparkMax(kMotorPort+1);
   private final XboxController m_joystick = new XboxController(kJoystickPort);
   double deltaX, deltaY;
+  double currentX, currentY;
 
   // Simulation classes help us simulate what's going on, including gravity.
   private static final double m_armReduction = 600;
@@ -258,12 +259,31 @@ public class Robot extends TimedRobot {
         bottomSetpoint = (int) MathUtil.clamp(SmartDashboard.getNumber("Setpoint bottom (degrees)", 0), m_arm_bottom_min_angle, m_arm_bottom_max_angle);
         break;
       case 3:
+        boolean firstTime = true;
+        if (firstTime){
+          currentX = m_arm_bottomLength * Math.cos(m_bottomEncoder.getDistance()) + m_arm_topLength * Math.cos(m_bottomEncoder.getDistance() + m_topEncoder.getDistance());
+          currentY = m_arm_bottomLength * Math.sin(m_bottomEncoder.getDistance()) + m_arm_topLength * Math.sin(m_bottomEncoder.getDistance() + m_topEncoder.getDistance());
+          firstTime = false;
+        }
         // calculate X and/or Y based on current angles - adjust X and/or Y based on joystick - calaculate new angles (topSetpoint,bottomSetpoint),
-        deltaX = m_joystick.getRawAxis(0) * .1;
-        deltaY = m_joystick.getRawAxis(1) * .1;
+        if (Math.abs(m_joystick.getRawAxis(0)) < 0.1){
+          deltaX = 0;
+        }
+        else {
+          deltaX = m_joystick.getRawAxis(0) * 0.1;
+        }
+        if (Math.abs(m_joystick.getRawAxis(1)) < 0.1){
+          deltaY = 0;
+        }
+        else {
+          deltaY = -m_joystick.getRawAxis(1) * 0.1;
+        }
+
         SmartDashboard.putNumber("deltaX", deltaX);
-        double currentX = m_arm_bottomLength * Math.cos(m_bottomEncoder.getDistance()) + m_arm_topLength * Math.cos(m_bottomEncoder.getDistance() + m_topEncoder.getDistance());
-        double currentY = m_arm_bottomLength * Math.sin(m_bottomEncoder.getDistance()) + m_arm_topLength * Math.sin(m_bottomEncoder.getDistance() + m_topEncoder.getDistance());
+        if ((Math.abs(m_joystick.getRawAxis(0)) < 0.1) || (Math.abs(m_joystick.getRawAxis(1)) < 0.1)){
+          currentX = m_arm_bottomLength * Math.cos(m_bottomEncoder.getDistance()) + m_arm_topLength * Math.cos(m_bottomEncoder.getDistance() + m_topEncoder.getDistance());
+          currentY = m_arm_bottomLength * Math.sin(m_bottomEncoder.getDistance()) + m_arm_topLength * Math.sin(m_bottomEncoder.getDistance() + m_topEncoder.getDistance());
+        }
         SmartDashboard.putNumber("currentX", currentX);
         double targetX = currentX + deltaX;
         double targetY = currentY + deltaY;
@@ -271,16 +291,31 @@ public class Robot extends TimedRobot {
         //calculate angles to get to X,Y
         double hypot = Math.sqrt((targetX * targetX) + (targetY * targetY));
         double theta_S2 = Math.acos((m_arm_bottomLength*m_arm_bottomLength + hypot*hypot - m_arm_topLength*m_arm_topLength) / (2*hypot*m_arm_bottomLength));
-        double theta_S1 = Math.atan2( targetY, targetX);
-        bottomSetpoint = (int) Units.radiansToDegrees(theta_S1 + theta_S2);
+        double theta_S1 = Math.asin(targetY/hypot);
+        double bwottomSetpoint;
+        double twopSetpoint;
+        //bottomSetpoint = (int) Units.radiansToDegrees(theta_S1 + theta_S2);
         double theta_E = Math.acos((m_arm_bottomLength*m_arm_bottomLength + m_arm_topLength*m_arm_topLength - hypot*hypot) /  (2*m_arm_bottomLength*m_arm_topLength));
-        topSetpoint = (int) Units.radiansToDegrees(theta_E - 180);
+        SmartDashboard.putNumber("Theta E", theta_E);
+        if (targetY >= 0){
+          bottomSetpoint = (int) Units.radiansToDegrees(theta_S1+theta_S2);
+        } else {
+          bottomSetpoint = (int) Units.radiansToDegrees(theta_S2-theta_S1);
+        }
+        if (targetX <0){
+          topSetpoint = (int) Units.radiansToDegrees(Math.PI - theta_E);
+          bottomSetpoint = (int) Units.radiansToDegrees(Math.PI- (theta_S1+theta_S2));
+        }
+        else {
+          topSetpoint = (int) Units.radiansToDegrees(theta_E-Math.PI);
+        }
+       // topSetpoint = (int) Units.radiansToDegrees(theta_E - Math.PI);
 
         double theta_F = Math.acos((hypot*hypot + m_arm_topLength*m_arm_topLength - m_arm_bottomLength*m_arm_bottomLength) /  (2*hypot*m_arm_topLength));
 
         SmartDashboard.putNumber("A+B+C", Units.radiansToDegrees(theta_F + theta_E + theta_S1));
-
-        SmartDashboard.putNumber("sin(90)", Math.sin(90));
+        SmartDashboard.putNumber("Top Angle", topSetpoint);
+        SmartDashboard.putNumber("Bottom Angle", bottomSetpoint);
         SmartDashboard.putNumber("sin(pi 2) correct", Math.sin(Math.PI/2));
 
 

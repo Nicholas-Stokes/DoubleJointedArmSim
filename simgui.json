@@ -3,12 +3,12 @@
     "Encoders": {
       "0": {
         "header": {
-          "open": true
+          "open": false
         }
       },
       "1": {
         "header": {
-          "open": true
+          "open": false
         }
       }
     },
@@ -19,7 +19,7 @@
     },
     "RoboRIO": {
       "RoboRIO Input": {
-        "open": true
+        "open": false
       }
     },
     "Timing": {
